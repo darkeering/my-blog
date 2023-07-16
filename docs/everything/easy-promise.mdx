@@ -1,0 +1,428 @@
+---
+sidebar_position: 3
+title: 手写简易Promise
+---
+
+## Promise 核心
+
+- 有三个状态 `pending`、`resolved`、`rejected`，一旦改变，不可逆转
+- Promise 构造函数接受一个 `excutor` 函数，立即执行
+- excutor 有两个函数，`resolve`，`reject`
+- then 函数接收两个函数 -- `onResolve`，`onReject`
+- then 的链式调用和值的穿透
+
+:::tip
+我们先实现 resolve
+
+最后再把 reject 的逻辑加上
+:::
+
+## \_Promise 1.0 then 接收 resolve data
+
+```js
+console.log(1);
+const p1 = new _Promise((resolve) => {
+  resolve("success");
+}).then((data) => {
+  console.log(data);
+});
+console.log(2);
+// 1 > 2 > success
+```
+
+- 设置状态，基础变量
+
+  ```js
+  const Pending = Pending;
+  const Resolved = Resolved;
+
+  class _Promise {
+    constructor(executor) {
+      this.status = Pending;
+      let resolve = () => {};
+      executor(resolve);
+    }
+
+    then(onResolve) {}
+  }
+  ```
+
+- 调用 resolve 和 reject 的时候，状态要改变，并且把值保存起来
+
+  ```js
+  class _Promise {
+    constructor(executor) {
+      this.status = Pending;
+      this.value = undefined;
+      let resolve = (value) => {
+        if (this.status === Pending) {
+          this.value = value;
+          this.status = Resolved;
+        }
+      };
+      executor(resolve);
+    }
+
+    then(onResolve) {}
+  }
+  ```
+
+- then 执行 onResolve 方法，并且 promise 中的 then 是异步的
+
+  ```js
+  then(onResolve) {
+    if (this.status === Resolved) {
+      setTimeout(() => {
+        onResolve(this.value);
+      })
+    }
+  }
+  ```
+
+## \_Promise 2.0 异步
+
+```js
+console.log(1);
+const p1 = new _Promise((resolve) => {
+  setTimeout(() => {
+    resolve("success");
+  }, 300);
+}).then((data) => {
+  console.log(data);
+});
+console.log(2);
+// 1 > 2 > success
+```
+
+在 \_Promise 1.0 中，运行到 then 方法时，因为异步，resolve 还没有执行完，status 还是 `Pending` 状态，所以 onResolve，没有执行
+
+因此，我们需要把 onResolve 存起来，等到 resolve 执行完，状态改变之后，之后再来执行 onResolve
+
+```js
+class _Promise {
+  constructor(executor) {
+    this.status = Pending;
+    this.value = undefined;
+    this.reason = undefined;
+    this.onResolveCbs = [];
+    let resolve = (value) => {
+      if (this.status === Pending) {
+        this.value = value;
+        this.status = Resolved;
+        this.onResolveCbs.forEach((cb) => cb());
+      }
+    };
+    executor(resolve);
+  }
+
+  then(onResolve) {
+    if (this.status === Resolved) {
+      setTimeout(() => {
+        onResolve(this.value);
+      });
+    }
+    if (this.status === Pending) {
+      this.onResolveCbs.push(() => {
+        setTimeout(() => {
+          onResolve(this.value);
+        });
+      });
+    }
+  }
+}
+```
+
+## \_Promise 3.0 then 的链式调用
+
+```js
+console.log(1);
+const p1 = new _Promise((resolve) => {
+  setTimeout(() => {
+    resolve("success");
+  }, 300);
+})
+  .then((data) => {
+    console.log(data);
+    return 11;
+  })
+  .then((data) => {
+    console.log(data);
+    return 22;
+  })
+  .then((data) => {
+    console.log(data);
+  });
+console.log(2);
+// 1 > 2 > success > 11 > 22
+```
+
+then 的链式调用，其实就是 then 的返回值是一个新的 Promise 对象
+
+onResolve 执行后 return 的值，需要通过 newPromise resolve 出去，再进行下一个 then 的调用
+
+```js
+then(onResolve) {
+  let x;
+  const newPromise = new _Promise((resolve) => {
+    if (this.status === Resolved) {
+      setTimeout(() => {
+        x = onResolve(this.value);
+        resolve(x);
+      })
+    }
+    if (this.status === Pending) {
+      this.onResolveCbs.push(() => {
+        setTimeout(() => {
+          x = onResolve(this.value);
+          resolve(x);
+        })
+      });
+    }
+  })
+
+  return newPromise
+}
+```
+
+## \_Promise 4.0 值的穿透
+
+```js
+console.log(1);
+const p1 = new _Promise((resolve) => {
+  setTimeout(() => {
+    resolve("success");
+  }, 300);
+})
+  .then()
+  .then()
+  .then((data) => {
+    console.log(data);
+  });
+console.log(2);
+// 1 > 2 > success
+```
+
+在 then 函数什么参数都没有传的时候，需要给 onResolve 一个默认的方法，使的这个 value 值可以传递下去
+
+```js
+then(onResolve) {
+  if(typeof onResolve !== "function") onResolve = (v) => v;
+  let x;
+  const newPromise = new _Promise((resolve) => {
+    if (this.status === Resolved) {
+      setTimeout(() => {
+        x = onResolve(this.value);
+        resolve(x);
+      })
+    }
+    if (this.status === Pending) {
+      this.onResolveCbs.push(() => {
+        setTimeout(() => {
+          x = onResolve(this.value);
+          resolve(x);
+        })
+      });
+    }
+  })
+
+  return newPromise
+}
+```
+
+## \_Promise 5.0 其他 then 的返回值
+
+```js
+console.log(1);
+new Promise((resolve) => {
+  resolve("success");
+})
+  .then((data) => {
+    console.log(data);
+    return 11;
+  })
+  .then((data) => {
+    console.log(data);
+    return new _Promise((resolve) => {
+      resolve(22);
+    });
+  })
+  .then((data) => {
+    console.log(data);
+  });
+console.log(2);
+// 1 > 2 > success > 11 > 22
+```
+
+then 的返回值有以下几种情况
+
+- 不是对象也不是函数，直接 resolve
+- 是对象或者函数，但是不含有 then 函数，说明不是 promise 对象，直接 resolve
+- 是对象或者函数，且含有 then 函数，说明是 promise 对象，需要实现这个 promise 然后
+
+所以需要根据 th 的返回值来判断，我们创建一个方法来专门处理这种情况
+
+```js
+resolvePromise(x, resolve) {
+  resolve(x)
+}
+
+then(onResolve) {
+  if (typeof onResolve !== "function") onResolve = (v) => v;
+  let x;
+  const newpromise = new _Promise((resolve) => {
+    if (this.status === Resolved) {
+      setTimeout(() => {
+        x = onResolve(this.value);
+        this.resolvePromise(x, resolve);
+      });
+    }
+    if (this.status === Pending) {
+      this.onResolveCbs.push(() => {
+        setTimeout(() => {
+          x = onResolve(this.value);
+          this.resolvePromise(x, resolve);
+        });
+      });
+    }
+  });
+
+  return newpromise;
+}
+```
+
+根据上面情况进行判断
+
+```js
+resolvePromise(x, resolve) {
+  const xType = typeof x;
+  if (xType !== "object" && xType !== "function") {
+    resolve(x);
+    return;
+  }
+
+  if(typeof x.then !== "function") {
+    resolve(x);
+    return;
+  }
+
+  x.then((data) => {
+    this.resolvePromise(data, resolve)
+  })
+}
+```
+
+## 总结
+
+加上 reject 和 onReject
+
+```js
+const Pending = "pending";
+const Resolved = "resolved";
+const Rejected = "rejected";
+
+class _Promise {
+  constructor(executor) {
+    this.status = Pending;
+    this.value = undefined;
+    this.reason = undefined;
+    this.onResolveCbs = [];
+    this.onRejectCbs = [];
+    let resolve = (value) => {
+      if (this.status === Pending) {
+        this.value = value;
+        this.status = Resolved;
+        this.onResolveCbs.forEach((cb) => cb());
+      }
+    };
+    let reject = (reason) => {
+      if (this.status === Pending) {
+        this.reason = reason;
+        this.status = Rejected;
+        this.onRejectCbs.forEach((cb) => cb());
+      }
+    };
+    executor(resolve, reject);
+  }
+
+  resolvePromise(x, resolve, reject) {
+    const xType = typeof x;
+    if (xType !== "object" && xType !== "function") {
+      resolve(x);
+      return;
+    }
+
+    if (typeof x.then !== "function") {
+      resolve(x);
+      return;
+    }
+
+    x.then(
+      (data) => {
+        this.resolvePromise(data, resolve);
+      },
+      (reason) => {
+        reject(reason);
+      }
+    );
+  }
+
+  then(onResolve, onReject) {
+    if (typeof onResolve !== "function") onResolve = (v) => v;
+    if (typeof onReject !== "function") onResolve = (v) => v;
+    let x;
+    const newpromise = new _Promise((resolve, reject) => {
+      if (this.status === Resolved) {
+        setTimeout(() => {
+          x = onResolve(this.value);
+          this.resolvePromise(x, resolve, reject);
+        });
+      }
+      if (this.status === Rejected) {
+        setTimeout(() => {
+          x = onReject(this.reason);
+          this.resolvePromise(x, resolve, reject);
+        });
+      }
+      if (this.status === Pending) {
+        this.onResolveCbs.push(() => {
+          setTimeout(() => {
+            x = onResolve(this.value);
+            this.resolvePromise(x, resolve, reject);
+          });
+        });
+        this.onResolveCbs.push(() => {
+          setTimeout(() => {
+            x = onResolve(this.reason);
+            this.resolvePromise(x, resolve, reject);
+          });
+        });
+      }
+    });
+
+    return newpromise;
+  }
+}
+```
+
+## \_Promise.all
+
+```js
+static all(promises) {
+  return new _Promise((resolve, reject) => {
+    let count = 0;
+    let arr = [];
+    promises.forEach((promise, index) => {
+      promise.then(
+        (res) => {
+          count++;
+          arr[index] = res;
+          if (count >= promises.length) resolve(arr);
+        },
+        (err) => {
+          reject(err);
+        }
+      );
+    });
+  });
+}
+```
