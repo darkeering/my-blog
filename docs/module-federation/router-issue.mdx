@@ -1,0 +1,222 @@
+---
+sidebar_position: 2
+title: 路由问题
+description: 解决Remote路由跳转不正常
+---
+
+import { Img } from "@site/src/components/img";
+
+## 情景介绍
+
+:::danger
+在 remote 项目中进行路由跳转，并不能正确的跳转
+:::
+
+## 搭建 Demo
+
+- remote 项目 创建一个 test.component
+  ```bash
+  ng g c test --project remote
+  ```
+- remote 项目 app-routing.module.ts 中设置路由
+  ```ts
+  const routes: Routes = [
+    {
+      path: "test",
+      component: TestComponent,
+    },
+  ];
+  ```
+- remote 项目 app.component.html 中跳转
+  ```html
+  <p>remote app works!</p>
+  <button routerLink="/test">navigate to test</button>
+  <router-outlet></router-outlet>
+  ```
+- 起服务
+
+  点击 navigate to remote，可以看出，到现在没有问题
+
+  <Img src="/img/module-federation/router-issue-init.png" width="350px"></Img>
+
+  再点击 navigate to test，可以发现，页面没有变化，并且路由虽然变了，但是和预料当中的 `/remote/test` 不一样，而是 `/test`
+
+  <Img src="/img/module-federation/router-issue-error.png" width="350px"></Img>
+
+**至此，我们 Demo 搭建成功，接下来就是分析问题了**
+
+## 分析问题
+
+**从上面可以看出，主要是路由方面的问题，所以我们来监听一下 host 和 remote 的路由变化**
+
+- 在 remote 项目的 app.component.ts 中监听路由变化
+
+  ```ts
+  import { NavigationEnd, Router } from '@angular/router';
+  import { filter } from 'rxjs';
+
+  constructor(
+    private router: Router
+  ) {
+    this.router.events
+      .pipe(filter((event: any) => event instanceof NavigationEnd))
+      .subscribe((res) => {
+        console.log('remote', res);
+      });
+  }
+  ```
+
+- 在 host 项目中创建一个 service（load-remote-root-module.service.ts），并在其中监听路由变化
+
+  :::tip
+  为什么要创建 service？别问，问就是后面用的上
+  :::
+
+  ```ts
+  import { Injectable } from "@angular/core";
+  import { NavigationEnd, Router } from "@angular/router";
+  import { filter } from "rxjs";
+
+  @Injectable({
+    providedIn: "root",
+  })
+  export class LoadRemoteRootModuleService {
+    constructor(private router: Router) {
+      this.router.events
+        .pipe(filter((event: any) => event instanceof NavigationEnd))
+        .subscribe((res) => {
+          console.log("host", res);
+        });
+    }
+  }
+  ```
+
+- 刷新页面，或者重启服务，为了方便展示，我加了些 log
+
+  可以看出，点击 navigate to remote 后，host 项目的路由监听到了，但是点击 navigate to test 后，host 路由并没有监听到
+
+  <Img src="/img/module-federation/router-issue-listen.png" width="750px"></Img>
+
+## 解决方案
+
+### host 项目需要知道 remote 项目的路由变化
+
+- remote 项目暴露出自己的路由
+
+  ```ts title="app.module.ts"
+  export class AppModule {
+    static _router: any;
+    constructor(private router: Router) {
+      AppModule._router = this.router;
+    }
+  }
+  ```
+
+- host 项目接收 remote 项目的路由
+
+  在上一节讲到的 **loadRemoteRootModule** 方法中，加入获取并进行监听，setTimeout 是用来异步，要不然获取不到
+
+  ```ts
+  const loadRemoteRootModule = (module: any) =>  {
+    setTimeout(() => {
+      (module.AppModule._router as Router).events
+        .pipe(filter((event: any) => event instanceof NavigationEnd))
+        .subscribe((res) => {
+          console.log(res);
+        });
+    });
+    ......
+    return module.AppModule;
+  };
+  ```
+
+### 更改 loadRemoteRootModule 方法的位置，来获取 host 的 router
+
+:::tip
+现在 host 项目能监听到 remote 的路由变化了，接下来就是重写路由并进行 navigateByUrl
+
+但是，之前我们的**loadRemoteRootModule**方法是写在 app-routing.module.ts 中的，所以我们获取不到 host 项目的 router
+
+还记得之前我让你创建的 load-remote-root-module.service.ts 吗，我们现在把**loadRemoteRootModule**方法，挪到这个 service 中
+:::
+
+- loadRemoteRootModule 挪到 load-remote-root-module.service.ts 中
+
+  ```ts title="load-remote-root-module.service.ts"
+  loadRemoteRootModule = (module: any) => {
+    setTimeout(() => {
+      (module.AppModule._router as Router).events
+        .pipe(filter((event: any) => event instanceof NavigationEnd))
+        .subscribe((res) => {
+          console.log(res);
+        });
+    });
+    ......
+    return module.AppModule;
+  };
+  ```
+
+- app-routing.module.ts 中 使用 loadRemoteRootModule 这个方法会报错，也将他挪到 load-remote-root-module.service.ts 中
+
+  :::info
+
+  this.router.resetConfig 可以重置路由列表，所以我们可以通过这个方法进行路由设置
+
+  :::
+
+  ```ts
+  resetConfig() {
+    this.router.resetConfig([
+      {
+        path: "remote",
+        loadChildren: () =>
+          loadRemoteModule({
+            type: "module",
+            remoteEntry: "http://localhost:9001/remoteEntry.js",
+            exposedModule: "./AppModule",
+          }).then((module) => this.loadRemoteRootModule(module)),
+      },
+      ...this.router.config
+    ])
+  }
+  ```
+
+### 监听路由变化，进行路由重写
+
+```ts title="loadRemoteRootModule"
+loadRemoteRootModule = (module: any, prefix: string) => {
+  setTimeout(() => {
+    (module.AppModule._router as Router).events
+      .pipe(filter((event: any) => event instanceof NavigationEnd))
+      .subscribe((res) => {
+        const url = res.url === '/' ? '' : res.url
+        this.router.navigateByUrl(`/${prefix}${url}`)
+      });
+  });
+  ......
+  return module.AppModule;
+};
+```
+
+```ts title="resetConfig"
+resetConfig() {
+  this.router.resetConfig([
+    {
+      path: "remote",
+      loadChildren: () =>
+        loadRemoteModule({
+          type: "module",
+          remoteEntry: "http://localhost:9001/remoteEntry.js",
+          exposedModule: "./AppModule",
+        }).then((module) => this.loadRemoteRootModule(module, 'remote')),
+    },
+    ...this.router.config
+  ])
+}
+```
+
+## 试验解决方案
+
+从图中可以看出，先后点击 navigate to remote 和 navigate to remote 之后，页面成功展示
+
+<Img src="/img/module-federation/router-issue-finish.png" width="750px"></Img>

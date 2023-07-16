@@ -1,0 +1,135 @@
+---
+sidebar_position: 3
+title: 拦截器问题
+description: 解决Host中Remote调用http不走Host拦截器
+---
+
+import { Img } from "@site/src/components/img";
+
+## 情景介绍
+
+:::danger
+当在 remote 项目中调用 http 请求的时候，并没有走 host 项目的拦截器，而还是走的 remote 项目自己的拦截器
+:::
+
+## 搭建 Demo
+
+- 分别在 host 和 remote 项目中创建一个拦截器
+
+  ```bash
+  ng g interceptor interceptor/req-res --project host
+  ng g interceptor interceptor/req-res --project remote
+  ```
+
+- 打上各自的 log
+
+  ```ts title="req-res.interceptor.ts"
+  intercept(
+  request: HttpRequest<unknown>,
+  next: HttpHandler
+  ): Observable<HttpEvent<unknown>> {
+    console.log('<host/remote> request');
+
+    return next.handle(request).pipe(
+      map((event) => {
+        if (!(event instanceof HttpResponse)) return event;
+        console.log('<host/remote> response');
+        return event;
+      })
+    );
+  }
+  ```
+
+  ```ts title="app.module.ts"
+  const httpInterceptorProviders = [
+    { provide: HTTP_INTERCEPTORS, useClass: ReqResInterceptor, multi: true },
+  ]
+  providers: [
+    httpInterceptorProviders
+  ],
+  ```
+
+- 在两个项目中分别调用 http 请求，服务端就用 express 随意搭建一个就行（如果碰到跨域，在 host 项目中添加一个 proxy.conf.json 进行代理）
+
+  **为了演示，我多打了几个 log**，可以看出，当我们点击 host send http request 时，走的是 host 的拦截器，当点击 remote send http request 时，走的是 remote 自己的拦截器
+
+  <Img src="/img/module-federation/interceptor-error.png" width="750px"></Img>
+
+**至此，我们 Demo 搭建成功，接下来就是分析问题了**
+
+## 分析问题
+
+- 我们先注释掉 remote 项目中的拦截器
+
+  ```ts
+  providers: [
+  // httpInterceptorProviders
+  ],
+  ```
+
+- 再来看，调用接口时走的拦截器变化
+
+  当我们点击 remote send http request 时，走的就是 remote 自己的拦截器
+
+  <Img src="/img/module-federation/interceptor-delete.png" width="750px"></Img>
+
+**现在，我们可以得出结论了，remote 并不是没有走 host 项目的拦截器，而是和 Angular 的 service 的特性一样，里面拦截器的把外面的覆盖了**
+
+## 解决方案
+
+:::tip
+把注释的拦截器解开
+:::
+
+### 获取 remote 项目的拦截器
+
+回到我们上两节讲的 loadRemoteRootModule 方法上面，appModuleProviders 就是 remote 项目 AppModule 所有的 providers
+
+```ts
+const loadRemoteRootModule = (module: any) =>  {
+  const appModuleProviders = module.AppModule.ɵinj.providers
+  ......
+  return module.AppModule;
+};
+```
+
+### 将 host 项目的 httpInterceptorProviders 插入到 appModuleProviders 里面
+
+:::tip
+为了代码的健壮性，我在 host 项目 interceptor 文件夹下面建了个 index.ts，专门用来导出所有的拦截器，然后再更新 AppModule 中 httpInterceptorProviders 的导入
+:::
+
+```ts title="host > interceptor > index.ts"
+import { HTTP_INTERCEPTORS } from "@angular/common/http";
+import { ReqResInterceptor } from "./req-res.interceptor";
+
+export const httpInterceptorProviders = [
+  { provide: HTTP_INTERCEPTORS, useClass: ReqResInterceptor, multi: true },
+];
+```
+
+```ts
+const loadRemoteRootModule = (module: any) =>  {
+  const appModuleProviders = module.AppModule.ɵinj.providers
+  appModuleProviders.unshift(httpInterceptorProviders)
+  ......
+  return module.AppModule;
+};
+```
+
+## 试验解决方案
+
+从图中可以看出，点击 remote send http request 时，先走的 host 的拦截器，然后走的 remote 拦截器
+
+<Img src="/img/module-federation/interceptor-finish.png" width="750px"></Img>
+
+## 小贴士
+
+:::info
+
+当然，这只是一种实际情况
+
+如果实际项目中不想走 remote 的拦截器，那就直接删除 appModuleProviders 中的拦截器配置
+
+如果只想走 host 的拦截器，也可以直接替换，以上只是一种解题思路，实际项目中可以灵活变通
+:::

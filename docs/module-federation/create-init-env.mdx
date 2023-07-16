@@ -1,0 +1,217 @@
+---
+sidebar_position: 1
+title: 创建初始环境
+description: 创建Host和Remote两个项目，并实现最基础的Host调用Remote
+---
+
+import { Img } from "@site/src/components/img";
+
+## 介绍
+
+Module Federation 是 Webpack5 的 plugin，主要是用来做微前端的，但是也只是提供了一个插件，其中具体的一些项目中碰到的问题，还是需要我们自己给出具体的解决方案
+
+## 项目相关
+
+:::tip
+
+```bash
+npm i -g @angular/cli@15.2.8
+```
+
+为了使用方便，Host 项目和 remote 项目使用的一个代码仓库，但是和两个项目在不同的仓库原理上是一样的
+:::
+
+## 基础项目搭建
+
+### 初始化项目
+
+- 创建一个项目空壳子，其中没有任何项目
+
+  ```bash
+  ng new shell --create-application=false
+  ```
+
+- 进入到项目文件夹中，添加 Host 项目和 remote 项目
+
+  ```bash
+  ng g application host
+  ng g application remote
+  ```
+
+- 安装依赖 `@angular-architects/module-federation`
+
+  ```bash
+  npm i @angular-architects/module-federation@15 -D
+  ```
+
+- 通过 `@angular-architects/module-federation` 分别给两个项目添加 webpack.config.js 等配置
+
+  ```bash
+  ng g @angular-architects/module-federation:init --project host --port 9000
+  ng g @angular-architects/module-federation:init --project remote --port 9001
+  ```
+
+  到此为止，两个项目都初始化好了
+
+### 配置 remote 中需要暴露的 module
+
+:::tip
+在官方文档，或其他作者的文档中，使用的都是自定义的 Module，然后暴露出来
+
+但是在实际开发中，很多时候 host 项目需要使用的是 remote 项目中的根 module（即 AppModule）
+
+但是暴露 AppModule 有一些问题，这些问题在之后的篇章中会提到
+:::
+
+- remote 项目的 webpack.config.js
+
+  ```ts
+  name: "remote",
+  filename: "remoteEntry.js",
+  exposes: {
+      './AppModule': './projects/remote/src/app/app.module.ts',
+  },
+  ```
+
+- host 项目的 app-routing.module.ts
+
+  ```ts
+  import { loadRemoteModule } from "@angular-architects/module-federation";
+
+  const loadRemoteRootModule = (module: any) => {
+    const appModuleImports = module.AppModule.ɵinj.imports;
+    const appRoutingModule = appModuleImports.find(
+      (i: any) => i.name === "AppRoutingModule"
+    );
+    const appRoutingModuleImports = appRoutingModule.ɵinj.imports;
+    const appRoutingModuleForRoot = appRoutingModuleImports.find(
+      (i: any) => i.ngModule && i.ngModule.name === "RouterModule"
+    );
+
+    appRoutingModuleForRoot.providers = [appRoutingModuleForRoot.providers[2]];
+    appRoutingModuleForRoot.providers[0].useValue = [
+      {
+        path: "",
+        component: module.AppModule.ɵmod.bootstrap[0],
+        children: appRoutingModuleForRoot.providers[0].useValue,
+      },
+    ];
+    return module.AppModule;
+  };
+
+  const routes: Routes = [
+    {
+      path: "remote",
+      loadChildren: () =>
+        loadRemoteModule({
+          type: "module",
+          remoteEntry: "http://localhost:9001/remoteEntry.js",
+          exposedModule: "./AppModule",
+        }).then((module) => loadRemoteRootModule(module)),
+    },
+  ];
+  ```
+
+**你没看懂 loadRemoteRootModule 方法是干什么的？**
+
+**没关系，我们先试验这个好不好用，然后再来剖析这个方法**
+
+### 试验成功与否
+
+改造两个项目的 AppComponent，用路由进行试验
+
+- host 项目
+
+  ```html
+  <!-- app.component.html -->
+  <p>host app work!</p>
+  <button routerLink="/remote">navigate to remote</button>
+  <router-outlet></router-outlet>
+  ```
+
+- remote 项目
+  ```html
+  <!-- app.component.html -->
+  <p>remote app work!</p>
+  <router-outlet></router-outlet>
+  ```
+- 起服务，点击 navigate to remote，可以发现，remote 项目的 app.component 成功被加载了
+  <Img src="/img/module-federation/init.png" width="350px"></Img>
+
+### 剖析 loadRemoteRootModule 方法
+
+- 入参 **module**
+
+  module 是什么？其实就是 remote 项目 暴露出来的 AppModule，让我们打印看一下
+
+  <Img
+    src="/img/module-federation/loadremotemodule-module.png"
+    width="600px"
+  ></Img>
+
+- 为什么不能直接加载 AppModule？
+
+  因为不管是 host 项目还是 remote 项目，根模块（即 AppModule）中，都 import 了一个相同的模块--**RouterModule.forRoot**（在本项目中，是在 AppRoutingModule 中引用的，但是归根结底还是在 AppModule 中引用的），但是在同一个 Angular 项目中只能存在一个 RouterModule.forRoot
+
+  而当 host 项目加载 remote 项目的根模块（即 AppModule）时，其实 remote 项目的 AppModule 是作为 host 项目的子 Module 加载进来的，实际上还是一个项目，所以只能使用 **RouterModule.forChild**，因此不能直接加载 AppModule
+
+- RouterModule.forRoot 和 RouterModule.forChild 的差别
+
+  <Img
+    src="/img/module-federation/loadremotemodule-forroot.png"
+    width="550px"
+  ></Img>
+  <Img
+    src="/img/module-federation/loadremotemodule-forchild.png"
+    width="550px"
+  ></Img>
+
+  对比后你可以发现，forChild 的返回值其实就是 forRoot 返回值的一部分，所以我们可以通过 forRoot 来获取到 forChild
+
+- 改造获取到的 AppModule
+
+  在本项目中，RouterModule.forRoot 是在 AppRoutingModule 引用的，所以我们需要先找到 AppModule 中的 AppRoutingModule
+
+  ```ts
+  const appModuleImports = module.AppModule.ɵinj.imports;
+  const appRoutingModule = appModuleImports.find(
+    (i: any) => i.name === "AppRoutingModule"
+  );
+  ```
+
+  然后，找到 RouterModule.forRoot 返回的对象
+
+  ```ts
+  const appRoutingModuleImports = appRoutingModule.ɵinj.imports;
+  const appRoutingModuleForRoot = appRoutingModuleImports.find(
+    (i: any) => i.ngModule && i.ngModule.name === "RouterModule"
+  );
+  ```
+
+  之后，按照 forRoot 和 forChild 的差异进行改造
+
+  ```ts
+  appRoutingModuleForRoot.providers = [appRoutingModuleForRoot.providers[2]];
+  ```
+
+  最后，需要在 AppModule 的路由外面将 AppComponent 包上去，因为 remote 的 AppComponent 是通过 bootstrap 加载上去的，所以 remote 的路由是默认加载在 AppComponent 上面的，因此 remote 的路由中不包含 AppComponent，所以最后我们需要手动的将 AppComponent 包上去
+
+  ```ts
+  appRoutingModuleForRoot.providers[0].useValue = [
+    {
+      path: "",
+      component: module.AppModule.ɵmod.bootstrap[0],
+      children: appRoutingModuleForRoot.providers[0].useValue,
+    },
+  ];
+  ```
+
+## 总结
+
+:::info
+
+归根结底，我们其实就是对获取到的 AppModule 进行了改造，但是在这个过程中我们需要对 Angular 的机制有一定的了解
+
+这只是搭建最基础的项目，欲知后事如何，且看下回分解
+
+:::

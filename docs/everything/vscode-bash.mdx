@@ -1,0 +1,27 @@
+---
+# sidebar_position: 2
+title: vscode的终端设置成gitbash
+---
+
+import { Img } from "@site/src/components/img";
+
+1. 打开 vscode 设置
+
+2. 打开 vscode 设置
+
+3. 添加代码
+
+```json
+"terminal.integrated.profiles.windows": {
+    "gitBash": {
+        "path": "D:\\soft\\Git\\bin\\bash.exe", //本地bash程序的路径
+    }
+},
+"terminal.integrated.defaultProfile.windows": "gitBash",
+```
+
+4. 回到设置，搜索 shell windows，在以下的下拉框中选择 gitbash
+
+   <Img src="/img/everything/vscode-bash.png" width="450px"></Img>
+
+5. 重新打开终端就能看见了，如果不行就重启 vscode

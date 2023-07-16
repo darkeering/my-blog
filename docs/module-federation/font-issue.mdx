@@ -1,0 +1,142 @@
+---
+sidebar_position: 5
+title: 图标字体库问题
+description: 解决Host中Remote图标不显示
+---
+
+import { Img } from "@site/src/components/img";
+
+## 情景介绍
+
+:::danger
+使用第三方的字体图标库不展示
+:::
+
+## 搭建 Demo
+
+- 下载第三方字体图标，我选的是 DevUI 的字体图标库
+
+  ```bash
+  npm i @devui-design/icons
+  ```
+
+- 通过上一节讲解，我们直接在 remote 项目的 app.component.css 中 import
+
+  ```css title="app.component.css"
+  @import "~@devui-design/icons/icomoon/devui-icon.css";
+  ```
+
+  ```ts title="app.component.ts"
+  @Component({
+    selector: 'app-root',
+    templateUrl: './app.component.html',
+    styleUrls: ['./app.component.css'],
+    encapsulation: ViewEncapsulation.ShadowDom
+  })
+  ```
+
+  ```html title="app.component.ntml"
+  <p>remote app works!</p>
+  <i class="icon icon-add-bug"></i>
+  <router-outlet></router-outlet>
+  ```
+
+- 起服务
+
+  可以看出在 remote 中是好的，但是在 host 项目中，样式显示不出来了（9000 是 host，9001 是 remote）
+
+  <Img src="/img/module-federation/font-remote.png" width="350px" />
+  <Img src="/img/module-federation/font-host.png" width="350px" />
+
+**至此，我们 Demo 搭建成功，接下来就是分析问题了**
+
+## 分析问题
+
+F12，我们打开 Network 可以发现（没有的话，F5 刷新一下），font 资源加载失败 404
+
+<Img src="/img/module-federation/font-http.png" width="350px" />
+
+**为什么会失败呢？**
+
+<Img src="/img/module-federation/font-http-url.png" width="450px" />
+
+看一下 URL，发现问题了，9000 端口下面有 font 字体库资源吗？并没有，因为 host 项目没有安装这个字体库
+
+## 解决方案
+
+### 编写插件，更改 font 资源 URL 的地址
+
+这是我写的插件，其实就是更改生成的加载 font 资源的 URL
+
+```ts title="remote > webpack.config.js"
+const regexpDev = /url\('([^;\)]*)\.(ttf|woff2?|eot|otf|svg)(\?(.*))?'\)/g;
+const regexpProd = /url\(([^;\)]*)\.(ttf|woff2?|eot|otf|svg)(\?(.*))?\)/g;
+class OutputFontPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap("outputFont", (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: "outputFont",
+          stage: webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
+        },
+        (assets) => {
+          for (let key in assets) {
+            if (/(app.component.css)$/.test(key)) {
+              let regexp =
+                compilation.options.mode === "production"
+                  ? regexpProd
+                  : regexpDev;
+
+              if (assets[key]._value) {
+                let _value = assets[key]._value;
+                regexp.test(_value);
+                let temp = _value.replace(
+                  regexp,
+                  `url('http://localhost:9001/$1.$2')`
+                );
+                assets[key]._value = temp;
+              } else {
+                let _value = assets[key]._valueAsBuffer.toString();
+                regexp.test(_value);
+                let temp = _value.replace(
+                  regexp,
+                  `url('http://localhost:9001/$1.$2')`
+                );
+                assets[key]._valueAsBuffer = Buffer.from(temp);
+              }
+            }
+          }
+        }
+      );
+    });
+  }
+}
+```
+
+### 配置插件
+
+```ts title="remote > webpack.config.js"
+plugins: [
+  new OutputFontPlugin(),
+  new ModuleFederationPlugin({
+    ......
+  }),
+  sharedMappings.getPlugin()
+],
+```
+
+## 验证解决方案
+
+重启服务，可以看出，host 项目中 remote 的字体资源加载成功了
+
+<Img src="/img/module-federation/font-finish.png" width="650px" />
+
+## 结语
+
+:::tip
+
+完结，撒花！！
+
+如果，还有其他疑问，可以通过我的邮箱 darkeering@outlook.com联系我
+
+:::

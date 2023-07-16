@@ -1,0 +1,250 @@
+---
+sidebar_position: 2
+title: React 类似 Angular Service 的状态管理
+---
+
+import { Img } from "@site/src/components/img";
+
+## Angular Service 功能
+
+- 全局单例
+- 后面 provide 的 Service 可以覆盖前面的
+- 可以进行依赖注入
+
+## 基于的 React 的原理
+
+react 的 context.Provider 组件会在子组件创建一个一个上下文，函数子组件总可以通过 useContext 方法来获取 context 传递的数据
+
+## 实现单例
+
+### 新建一个 util.ts，然后创建一个 SERVICE_CONTEXT
+
+```tsx title="util.ts"
+const SERVICE_CONTEXT = createContext(null);
+```
+
+### 实现使用 SERVICE_CONTEXT 的组件
+
+```tsx title="util.ts"
+function createServiceProvider<C>(Comp: React.FC<C>, services: any[]) {
+  return React.memo((props: any) => {
+    let providers: any = {};
+    for (let service of services) {
+      providers[service.name] = new service();
+    }
+
+    return (
+      <SERVICE_CONTEXT.Provider value={providers}>
+        <Comp {...props}></Comp>
+      </SERVICE_CONTEXT.Provider>
+    );
+  });
+}
+```
+
+### 创建 Total Service
+
+```bash
+npm i rxjs
+```
+
+```ts title="total.service.ts"
+class TotalService {
+  count: number = 0;
+  count$ = new Subject<number>();
+
+  setCount(count: number) {
+    this.count = count;
+    this.count$.next(this.count);
+  }
+}
+```
+
+### 自定义 Hook 函数
+
+```tsx title="util.ts"
+function useServiceHook<T>(service: new () => T): T {
+  const providers: any = useContext(SERVICE_CONTEXT);
+  const provider = providers[(service as any).name];
+  return provider;
+}
+```
+
+### 在 Total 组件中使用
+
+```tsx title="total.tsx"
+export default createServiceProvider(Total, [TotalService]);
+
+function Total() {
+  const totalService = useServiceHook(TotalService);
+  const [totalCount, setTotalCount] = useState(totalService.totalCount);
+
+  useEffect(() => {
+    const subscription = totalService.totalCount$.subscribe((totalCount) => {
+      setTotalCount(totalCount);
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    const subscription = totalService.totalCount$.subscribe((totalCount) => {
+      setTotalCount(totalCount);
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const addTotalCount = () => {
+    totalService.setTotalCount(totalCount + 1);
+  };
+  return (
+    <div>
+      <p>Total works! Total count is {totalCount}</p>
+      <button onClick={addTotalCount}>add total count</button>
+    </div>
+  );
+}
+```
+
+**从图中可以看出，Service 起作用了**
+
+<Img src="/img/everything/react-hooks-service-total.gif" width="450px"></Img>
+
+## 实现 Service 覆盖
+
+### 再新建一个 Part service
+
+```ts title="part.service.ts"
+export class PartService {
+  partCount: number = 0;
+  partCount$ = new Subject<number>();
+
+  setPartCount(partCount: number) {
+    this.partCount = partCount;
+    this.partCount$.next(this.partCount);
+  }
+}
+```
+
+### 将 Part service 添加到 Total 组件中使用，形成全局单例
+
+```tsx title="total.ts"
+export default createServiceProvider(Total, [TotalService, PartService]);
+```
+
+### 新建 Part 组件，并在 Total 组件中使用 Part 组件
+
+点击 `add {name} part count` 会增加 PartService 的 partCount 值，同时会增加 TotalService 的 totalCount 值
+
+```tsx title="part.ts"
+interface IProps {
+  name: string;
+}
+
+export default function Part({ name }: IProps) {
+  const totalService = useServiceHook(TotalService);
+  const partService = useServiceHook(PartService);
+  const [partCount, setPartCount] = useState(partService.partCount);
+  useEffect(() => {
+    const subscriptions: Subscription[] = [];
+    subscriptions.push(
+      partService.partCount$.subscribe((partCount) => {
+        setPartCount(partCount);
+      })
+    );
+    return () => {
+      subscriptions.forEach((i) => i.unsubscribe());
+    };
+  }, []);
+
+  const addPartCount = () => {
+    partService.setPartCount(partCount + 1);
+    totalService.setTotalCount(totalService.totalCount + 1);
+  };
+  return (
+    <div>
+      <p>{name} works!</p>
+      <p>
+        {name} part count is {partCount}
+      </p>
+      <button onClick={addPartCount}>add {name} part count</button>
+    </div>
+  );
+}
+```
+
+```tsx title="total.ts"
+return (
+  <div>
+    <p>Total works! Total count is {totalCount}</p>
+    <button onClick={addTotalCount}>add total count</button>
+    <Part name="A"></Part>
+    <Part name="B"></Part>
+  </div>
+);
+```
+
+:::info
+现在我们来分析一下代码
+
+我们在全局使用了 TotalService 和 PartService 形成了两个单例
+
+TotalService 的 totalCount 在 Total 组件中展示了值
+
+Total 组件使用了 Part 组件两次，实例化出了 PartA 和 PartB
+
+PartA 和 PartB 都展示了 PartService 的 partCount 值
+
+因为 PartService 是全局单例的，所以当我们点击 `add {name} part count` 时，PartA 和 PartB 中的 partCount 值会同时改变
+:::
+
+**从图中也可以看出，确实是同时改变**
+
+<Img
+  src="/img/everything/react-hooks-service-part-global.gif"
+  width="450px"
+></Img>
+
+### 修改 createServiceProvider 方法
+
+```tsx {3,5} title
+  export function createServiceProvider<C>(Comp: React.FC<C>, services: any) {
+    return React.memo((props: any) => {
++     const outerContext = useContext(SERVICE_CONTEXT);
+      let providers: any = {};
++     if (outerContext) providers = Object.create(outerContext);
+
+      for (let service of services) {
+        providers[service.name] = new service();
+      }
+
+      return (
+        <SERVICE_CONTEXT.Provider value={providers}>
+          <Comp {...props}></Comp>
+        </SERVICE_CONTEXT.Provider>
+      );
+    });
+  }
+```
+
+**在子组件使用 createServiceProvider 时，首先判断外层有没有 Providers（也就是 Service），如果有，通过 Object.create 方法将外层的 Providers 放到当前 Providers 的原型链上，之后，如果当前 Providers 有同名的 Service，就会直接覆盖**
+
+### 将 Part 用 createServiceProvider 生成
+
+```tsx {1,3-4}
++ export default createServiceProvider(Part, [PartService]);
+
+- export default function Part({ name }: IProps) {
++ function Part({ name }: IProps) {
+  ......
+  }
+```
+
+### 最终结果
+
+<Img
+  src="/img/everything/react-hooks-service-finish.gif"
+  width="450px"
+></Img>
