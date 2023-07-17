@@ -1,0 +1,138 @@
+---
+slug: docgeni-angular
+title: Angular 使用 Docgeni 搭建组件库文档
+---
+
+:::tip
+
+```bash
+npm i -g @angular/cli@15.2.8
+```
+
+:::
+
+## 使用 Angular 脚手架生成一个组件库架子
+
+- 生成一个空的项目
+
+  ```bash
+  ng new ng-darui --create-application=false
+  ```
+
+- 生成一个 library 项目
+
+  ```bash
+  ng g lib ng-darui --prefix=dar
+  ```
+
+- 删除多余组件和文件，最终目录是这样
+
+- 删除完，修改 `ng-package.json`
+
+  ```json
+  - "entryFile": "src/public-api.ts"
+  + "entryFile": "public-api.ts"
+  ```
+
+## 手动安装 Docgeni
+
+- 下载依赖包
+
+  ```bash
+  npm i @docgeni/cli @docgeni/template -D
+  ```
+
+- 添加 `.docgenirc.js` 配置
+
+  ```js
+  /**
+   * @type {import('@docgeni/core').DocgeniConfig}
+   */
+  module.exports = {
+    mode: "lite",
+    title: "ng-darui",
+    description: "",
+    docsDir: "docs",
+    navs: [
+      null,
+      {
+        title: "Components",
+        path: "components",
+        lib: "ng-darui",
+        locales: {},
+      },
+    ],
+    libs: [
+      {
+        name: "ng-darui",
+        abbrName: "dar",
+        rootDir: "projects/ng-darui",
+        include: [""],
+        categories: [
+          {
+            id: "general",
+            title: "通用",
+            locales: {
+              "en-us": {
+                title: "General",
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+  ```
+
+- 添加概述文档（没有它，项目起不来）
+
+  ```bash
+  mkdir docs && echo 'Hello Docgeni!' > docs/getting-started.md
+  ```
+
+- `tsconfig.json` 中添加/修改 `path`
+
+  ```json
+  {
+    "compilerOptions": {
+      "paths": {
+        "ng-darui/*": ["projects/ng-darui/*"]
+      }
+    }
+  }
+  ```
+
+## 添加组件
+
+- 通过 Angular 脚手架添加组件
+
+  **之前修改了 sourceRoot 之后，默认生成时在 `lib` 目录下面，所以需要返回个层级**
+
+  ```bash
+  ng g m ../button --project=ng-darui
+
+  ng g c ../button --project=ng-darui --module=button
+  ```
+
+- 修改组件文件
+
+  - 修改 `button.module.ts`
+
+    ```ts title="button.module.ts"
+    exports: [ButtonComponent];
+    ```
+
+  - 在 button 文件夹下面添加 index.ts
+
+    ```ts title="button > index.ts"
+    export * from "./button.component";
+    export * from "./button.module";
+    ```
+
+  - 在 `public-api.ts` 中添加
+
+    ```ts title="public-api.ts"
+    export * from "./button";
+    ```
+
+## 添加展示文档，和 example 组件
