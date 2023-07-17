@@ -25,13 +25,39 @@ npm i -g @angular/cli@15.2.8
   ng g lib ng-darui --prefix=dar
   ```
 
-- 删除多余组件和文件，最终目录是这样
+- 删除多余组件和文件，并移动文件，最终目录是这样
 
-- 删除完，修改 `ng-package.json`
+  ```
+  ├─ng-darui
+  |    ├─ng-package.json
+  |    ├─package.json
+  |    ├─public-api.ts
+  |    ├─README.md
+  |    ├─tsconfig.lib.json
+  |    ├─tsconfig.lib.prod.json
+  |    ├─tsconfig.spec.json
+  ```
 
-  ```json
+- 修改配置文件
+
+  ```diff title="angular.json"
+  - "sourceRoot": "projects/ng-darui/src",
+  + "sourceRoot": "projects/ng-darui",
+  ```
+
+  ```diff title="ng-package.json"
   - "entryFile": "src/public-api.ts"
   + "entryFile": "public-api.ts"
+  ```
+
+  ```diff title="tsconfig.json"
+    "paths": {
+  -   "ng-darui": [
+  -     "dist/ng-darui"
+  +   "ng-darui/*": [
+  +     "projects/ng-darui/*"
+      ]
+    },
   ```
 
 ## 手动安装 Docgeni
@@ -44,7 +70,7 @@ npm i -g @angular/cli@15.2.8
 
 - 添加 `.docgenirc.js` 配置
 
-  ```js
+  ```js title=".docgenirc.js"
   /**
    * @type {import('@docgeni/core').DocgeniConfig}
    */
@@ -68,6 +94,7 @@ npm i -g @angular/cli@15.2.8
         abbrName: "dar",
         rootDir: "projects/ng-darui",
         include: [""],
+        apiMode: 'automatic',
         categories: [
           {
             id: "general",
@@ -92,7 +119,7 @@ npm i -g @angular/cli@15.2.8
 
 - `tsconfig.json` 中添加/修改 `path`
 
-  ```json
+  ```json title="tsconfig.json"
   {
     "compilerOptions": {
       "paths": {
@@ -106,7 +133,7 @@ npm i -g @angular/cli@15.2.8
 
 - 通过 Angular 脚手架添加组件
 
-  **之前修改了 sourceRoot 之后，默认生成时在 `lib` 目录下面，所以需要返回个层级**
+  **之前修改了 angular.json 中的 sourceRoot 之后，默认生成时在 `lib` 目录下面，所以需要返回一个层级**
 
   ```bash
   ng g m ../button --project=ng-darui
@@ -118,8 +145,19 @@ npm i -g @angular/cli@15.2.8
 
   - 修改 `button.module.ts`
 
-    ```ts title="button.module.ts"
-    exports: [ButtonComponent];
+    ```diff title="button.module.ts"
+      @NgModule({
+        declarations: [
+          ButtonComponent
+        ],
+        imports: [
+          CommonModule
+        ],
+    +   exports: [
+    +     ButtonComponent
+    +   ]
+      })
+      export class ButtonModule { }
     ```
 
   - 在 button 文件夹下面添加 index.ts
@@ -135,4 +173,94 @@ npm i -g @angular/cli@15.2.8
     export * from "./button";
     ```
 
-## 添加展示文档，和 example 组件
+## 添加展示文档和 example 组件
+
+先展示最终的目录情况
+
+```
+├─doc
+|  └en-us.md
+├─examples
+|    ├─basic
+|    |   ├─basic.component.css
+|    |   ├─basic.component.html
+|    |   └basic.component.ts
+├─button.component.css
+├─button.component.html
+├─button.component.spec.ts
+├─button.component.ts
+├─button.module.ts
+├─index.ts
+```
+
+- basic 组件就是展示的 Demo 框框里面的东西
+
+  ```html title="basic.component.html"
+  <dar-button></dar-button>
+  ```
+
+  **basic 组件用的是 Angular 的独立组件**
+
+  ```ts title="basic.component.ts"
+  import { CommonModule } from "@angular/common";
+  import { Component } from "@angular/core";
+  import { ButtonModule } from "ng-darui/button";
+
+  @Component({
+    selector: "dar-button-basic-example",
+    templateUrl: "./basic.component.html",
+    styleUrls: ["./basic.component.css"],
+    standalone: true,
+    imports: [CommonModule, ButtonModule],
+  })
+  export class DarButtonBasicExampleComponent {
+
+    /**
+     * Button Type: `'primary' | 'secondary' | 'danger'`
+     * @description 按钮类型
+     * @default primary
+     * @type 'primary' | 'secondary' | 'danger'
+     */
+    @Input('type') type: string = 'primary'
+    constructor() {}
+  }
+  ```
+
+- `en-us.md` 就是组件的概述
+
+  :::info
+  category: 这个组件在哪个类别里面，就是之前在 `.docgenirc.js` 文件中定义的
+
+  name: 组件的名字，如果改成 aaa，那么 example 的 name 就应该是 dar-aaa-basic-example
+  
+  order: 在类别中的排序
+
+  `<example name="dar-button-basic-example" />` 是特定的 Demo 组件
+
+  `<examples />`是全部的 Demo 组件都展示
+
+  :::
+
+  ```md title="en-us.md"
+  ---
+  category: general
+  title: Button
+  name: button
+  order: 1
+  ---
+
+  这是单个
+  <example name="dar-button-basic-example" />
+
+  这是全部
+  <examples />
+  ```
+
+## 起服务
+
+```json title="package.json"
+"scripts": {
+  "start:docs": "docgeni serve --port 4600",
+  "build:docs": "docgeni build"
+},
+```

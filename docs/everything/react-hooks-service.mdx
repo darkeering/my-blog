@@ -209,7 +209,7 @@ PartA 和 PartB 都展示了 PartService 的 partCount 值
 
 ### 修改 createServiceProvider 方法
 
-```tsx {3,5} title
+```diff title
   export function createServiceProvider<C>(Comp: React.FC<C>, services: any) {
     return React.memo((props: any) => {
 +     const outerContext = useContext(SERVICE_CONTEXT);
