@@ -96,7 +96,7 @@ npm i -g @angular/cli@15.2.8
         abbrName: "dar",
         rootDir: "projects/ng-darui",
         include: [""],
-        apiMode: 'automatic',
+        apiMode: "automatic",
         categories: [
           {
             id: "general",
@@ -216,17 +216,21 @@ npm i -g @angular/cli@15.2.8
     imports: [CommonModule, ButtonModule],
   })
   export class DarButtonBasicExampleComponent {
-
-    /**
-     * Button Type: `'primary' | 'secondary' | 'danger'`
-     * @description 按钮类型
-     * @default primary
-     * @type 'primary' | 'secondary' | 'danger'
-     */
-    @Input('type') type: string = 'primary'
     constructor() {}
   }
   ```
+
+- 给 Button 组件添加 Api
+
+```ts title="button.component.ts"
+/**
+  * Button Type: `'primary' | 'secondary' | 'danger'`
+  * @description 按钮类型
+  * @default primary
+  * @type 'primary' | 'secondary' | 'danger'
+  */
+@Input('type') type: string = 'primary'
+```
 
 - `en-us.md` 就是组件的概述
 
@@ -234,7 +238,7 @@ npm i -g @angular/cli@15.2.8
   category: 这个组件在哪个类别里面，就是之前在 `.docgenirc.js` 文件中定义的
 
   name: 组件的名字，如果改成 aaa，那么 example 的 name 就应该是 dar-aaa-basic-example
-  
+
   order: 在类别中的排序
 
   `<example name="dar-button-basic-example" />` 是特定的 Demo 组件
@@ -260,9 +264,19 @@ npm i -g @angular/cli@15.2.8
 
 ## 起服务
 
-```json title="package.json"
-"scripts": {
-  "start:docs": "docgeni serve --port 4600",
-  "build:docs": "docgeni build"
-},
-```
+- 添加脚本
+
+  ```json title="package.json"
+  "scripts": {
+    "start:docs": "docgeni serve --port 4600",
+    "build:docs": "docgeni build"
+  },
+  ```
+
+- .gitignore 忽略文件
+
+  起服务会生成临时文件，需要在.gitignore中忽略这些临时文件
+
+  ```conf
+  .docgeni
+  ```
