@@ -1,0 +1,110 @@
+---
+sidebar_position: 6
+title: 组件通信问题
+description: 解决项目之间通信的问题
+---
+
+import { Img } from "@site/src/components/img";
+
+## 情景介绍
+
+:::danger
+不同的项目之间不能进行通信
+:::
+
+## 解决方案
+
+:::tip
+在 路由问题 章节，我们已经可以通过传递 remote 项目的 router 给 host 监听
+
+那么，根据这个思路我们是否可以通过传递一个 Service 来实现数据的传递呢？
+:::
+
+### remote 项目创建 Communicate Service
+
+- 生成 communicate.service.ts
+
+  ```bash
+  ng g service communicate --project remote
+  ```
+
+- 设置几个参数
+
+  ```ts
+  @Injectable({
+    providedIn: "root",
+  })
+  export class CommunicateService {
+    userId: number = 0;
+    userName: string = "";
+
+    emitMessage = new Subject();
+  }
+  ```
+
+- 在 App Component 中设置展示这几个参数的方法
+
+  ```html title="remote > app.component.html"
+  <p>remote app works!</p>
+  <button (click)="showUserInfo()">show value</button>
+  <button (click)="emitMessage()">emit</button>
+  <router-outlet></router-outlet>
+  ```
+
+  ```ts title="remote > app.component.ts"
+  constructor(private communicateService: CommunicateService) {}
+
+  showUserInfo() {
+    console.log(this.communicateService.userId);
+    console.log(this.communicateService.userName);
+  }
+
+  emitMessage() {
+    this.communicateService.emitMessage.next('I am remote!')
+  }
+  ```
+
+### remote 项目暴露出自己的 Communicate Service
+
+```ts title="app.module.ts"
+export class AppModule {
+  static communicateService: any;
+  constructor(private _communicateService: CommunicateService) {
+    AppModule.communicateService = this._communicateService;
+  }
+}
+```
+
+### host 使用 remote 的 Communicate Service
+
+还记得上几节讲到的 loadRemoteRootModule 方法吗？就在这个方法中设置
+
+```ts title="loadRemoteRootModule"
+loadRemoteRootModule = (module: any) => {
+  setTimeout(() => {
+    module.AppModule.communicateService.userId = 123456
+    module.AppModule.communicateService.userName = 'darkeering'
+    module.AppModule.communicateService.emitMessage.subscribe((value: any) => {
+      console.log('from remote value: ', value);
+    })
+  })
+  ......
+  return module.AppModule;
+};
+```
+
+## 验证解决方案
+
+起服务，当我们分别点击 `showUserInfo` 和 `emitMessage` 时，可以发现，remote 的 userId 和 userName 已经被更改，而 remote 发送出去的数据 host 也拿到了
+
+<Img src="/img/module-federation/communicate-finish.bmp" width="650px" />
+
+## 结语
+
+:::tip
+
+完结，撒花！！
+
+如果，还有其他疑问，可以通过我的邮箱 darkeering@outlook.com联系我
+
+:::
