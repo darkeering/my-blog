@@ -32,7 +32,7 @@ function HomepageHeader() {
           <p>流金岁月，记录美好生活</p>
           <h2>技术栈</h2>
           <ul>
-            <li>Angular，React</li>
+            <li>Angular，React，Svelte</li>
             <li>Nginx</li>
             <li>Http</li>
             <li>Module Fedreration</li>

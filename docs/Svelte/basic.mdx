@@ -1,0 +1,234 @@
+---
+sidebar_position: 1
+title: 基础
+description: 数据展示，更新
+---
+
+import { Img } from "@site/src/components/img";
+
+## Hello World!
+
+```html
+<script>
+  let name = "world";
+</script>
+<p>hello {name}!</p>
+<style>
+  p {
+    background-color: #ccc;
+  }
+</style>
+```
+
+## 组件引用
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  let name = "world";
+</script>
+<p>hello {world}!</p>
+<Home />
+<style>
+  p {
+    background-color: #ccc;
+  }
+</style>
+```
+
+```html title="home.svelte"
+<p>home</p>
+```
+
+## 数据通过赋值语句进行更新
+
+```html
+<script>
+  let count = 0;
+  function add() {
+    count = count + 1; // count++
+  }
+</script>
+<p>Count: {count}</p>
+<button on:click="{add}">add</button>
+```
+
+## 反应式声明（类似 Vue 的计算属性）
+
+```html
+<script>
+  let count = [1, 2];
+  function add() {
+    count = [...count, count.length + 1];
+  }
+  $: sum = count.reduce((p, c) => p + c, 0);
+</script>
+
+<p>Count Sum: {count.join(' + ')} = {sum}</p>
+<button on:click="{add}">add</button>
+```
+
+## Input 数据
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  let name = "world";
+  let data = "input data";
+</script>
+
+<p>hello {name}!</p>
+<Home data="{data}" />
+<!-- <Home {data} /> -->
+```
+
+```html title="home.svelte"
+<script>
+  export let data;
+</script>
+
+<p>home</p>
+<span>{data}</span>
+```
+
+## Output 数据
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  let name = "world";
+  let data = "input data";
+  function handleEmit(e) {
+    console.log(e); // e.detail = 'output data'
+  }
+</script>
+
+<p>hello {name}!</p>
+<Home {data} on:message="{handleEmit}" />
+```
+
+```html title="home.svelte"
+<script>
+  import { createEventDispatcher } from "svelte";
+  const dispatch = createEventDispatcher();
+
+  export let data;
+
+  function emitData() {
+    dispatch("message", "output data");
+  }
+</script>
+
+<p>home</p>
+<span>{data}</span>
+<button on:click="{emitData}">Emit data to app</button>
+```
+
+## 逻辑块
+
+### if else
+
+```html
+<script>
+  let score = 90;
+</script>
+
+{#if score >= 90}
+<p>优秀</p>
+{:else if score > 80}
+<p>良好</p>
+{:else if score > 60}
+<p>及格</p>
+{:else}
+<p>不及格</p>
+{/if}
+
+<input type="number" bind:value="{score}" />
+```
+
+### each
+
+```html
+<script>
+  let items = ["Angular", "React", "Svelte"];
+</script>
+
+{#each items as item, index (item)}
+<p>{index + 1}: {item}</p>
+{/each}
+```
+
+:::tip
+小括号里面是唯一的 key
+:::
+
+## 事件修饰符
+
+```html
+<div on:click={() => console.log('outer')}>
+	outer
+	<div on:click|stopPropagation={() => console.log('inner')}>
+		inner
+	</div>
+</div>
+```
+
+:::tip
+不加 stopPropagation 修饰符的话，点击 inner 也会出发 outer 事件
+:::
+
+## 事件转发
+
+**将 Home 组件的 click 事件转发到了 app 中**
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  function handleClick(e) {
+    console.log(e);
+  }
+</script>
+
+<Home on:click="{handleClick}" />
+```
+
+```html title="home.svelte"
+<div on:click>home</div>
+```
+
+## 绑定数据
+
+### input -- text number range
+
+```html
+<script>
+  let value = "name";
+  let num1 = 0;
+  let num2 = 0;
+</script>
+
+<p>{value}</p>
+
+<input type="text" bind:value />
+<br />
+<input type="number" bind:value="{num1}" min="0" max="10" />
+<input type="range" bind:value="{num1}" min="0" max="10" />
+<br />
+<input type="number" bind:value="{num2}" min="0" max="10" />
+<input type="range" bind:value="{num2}" min="0" max="10" />
+<p>{num1} + {num2} = {num1 + num2}</p>
+```
+
+### checkbox
+
+```html
+<script>
+  let checked = true;
+</script>
+
+<input type="checkbox" bind:checked />
+<label>{checked}</label>
+```
+
+### input group
+

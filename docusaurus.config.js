@@ -75,6 +75,11 @@ const config = {
                 sidebarId: "moduleFederation",
                 label: "moduleFederation",
               },
+              {
+                type: "docSidebar",
+                sidebarId: "svelte",
+                label: "Svelte教程",
+              },
             ],
           },
           {
