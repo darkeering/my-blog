@@ -1,0 +1,131 @@
+---
+sidebar_position: 2
+title: store
+description: 状态库
+---
+
+## 可编辑数据
+
+```js title="store.js"
+import { writable } from "svelte/store";
+
+export const count = writable(0);
+```
+
+```html title="app.svelte"
+<script>
+  import { count } from "./store.js";
+  import Home from "./home.svelte";
+  let _count;
+  count.subscribe((res) => {
+    _count = res;
+  });
+</script>
+
+<p>count is: {_count}</p>
+<p>count is: {$count}</p>
+
+<Home />
+```
+
+```html title="home.svelte"
+<script>
+	import { count } from './store.js';
+</script>
+
+<button on:click={() => count.update((n) => n + 1)}>addCount</button>
+<button on:click={() => count.update((n) => n - 1)}>deleteCount</button>
+```
+
+## 只读数据
+
+```js title="store.js"
+import { readable } from "svelte/store";
+
+export const timer = readable(new Date(), (set) => {
+  let interval = setInterval(() => {
+    set(new Date());
+  }, 1000);
+  return () => {
+    clearInterval(interval);
+  };
+});
+```
+
+```html title="app.svelte"
+<script>
+  import { timer } from "./store.js";
+</script>
+
+<p>{$timer}</p>
+```
+
+## 自定义 store（自带的 store）
+
+```js title="store.js"
+import { writable } from "svelte/store";
+
+function createCount() {
+  const { subscribe, set, update } = writable(0);
+
+  return {
+    subscribe,
+    add: () => update((n) => n + 1),
+    delete: () => update((n) => n - 1),
+    reset: () => set(0),
+  };
+}
+
+export const count = createCount(0);
+```
+
+```html title="app.svelte"
+<script>
+  import { count } from "./store.js";
+  import Home from "./home.svelte";
+</script>
+
+<p>{$count}</p>
+
+<Home />
+```
+
+```html title="home.svelte"
+<script>
+	import { count } from './store.js';
+</script>
+
+<button on:click={() => count.add()}>addCount</button>
+<button on:click={() => count.delete()}>deleteCount</button>
+
+```
+
+## 自定义 store（Rxjs）
+
+```js title="store.js"
+import { BehaviorSubject } from "rxjs";
+
+let count = new BehaviorSubject(0);
+
+export { count };
+```
+
+```html title="app.svelte"
+<script>
+  import { count } from "./store.js";
+  import Home from "./home.svelte";
+</script>
+
+<p>{$count}</p>
+
+<Home />
+```
+
+```html title="home.svelte"
+<script>
+	import { count } from './store.js';
+</script>
+
+<button on:click={() => count.next($count + 1)}>addCount</button>
+<button on:click={() => count.next($count - 1)}>deleteCount</button>
+```

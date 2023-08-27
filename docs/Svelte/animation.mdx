@@ -1,0 +1,43 @@
+---
+sidebar_position: 3
+title: 动画
+description: 官方动画组件库
+---
+
+## 补间
+
+**在数值变化期间，添加中间过度值**
+
+```html
+<script>
+	import { tweened } from 'svelte/motion';
+
+	let progress = tweened(0, {
+    duration: 600,
+  });
+</script>
+
+<p>{$progress}</p>
+<input type="range" bind:value={$progress} min={0} max={100} />
+<button on:click={() => ($progress += 20)}>add</button>
+```
+
+## 弹簧
+
+在补间的基础上添加了弹簧的效果
+
+```html
+<script>
+	import { spring } from 'svelte/motion';
+
+	let progress = spring(0, {
+		stiffness: 0.1,
+		damping: 0.25
+	});
+</script>
+
+<p>{$progress}</p>
+<input type="range" bind:value={$progress} min={0} max={100} />
+<button on:click={() => ($progress += 20)}>add</button>
+
+```

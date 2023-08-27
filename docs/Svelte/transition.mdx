@@ -1,0 +1,254 @@
+---
+sidebar_position: 4
+title: transition
+description: transition
+---
+
+## 官方过渡函数
+
+### fade
+
+```html
+<script>
+  import { fade } from "svelte/transition";
+  let visible = true;
+</script>
+
+<label>
+  <input type="checkbox" bind:checked="{visible}" />
+  visible
+</label>
+
+{#if visible}
+<p transition:fade>content</p>
+{/if}
+```
+
+### fly
+
+```html
+<script>
+	import { fly } from 'svelte/transition';
+	let visible = true;
+</script>
+
+<label>
+	<input type="checkbox" bind:checked={visible} />
+	visible
+</label>
+
+{#if visible}
+	<p transition:fly={{ y: 100, duration: 600 }}>content</p>
+{/if}
+```
+
+## 自定义出入动画函数
+
+```html
+<script>
+	import { fade, fly } from 'svelte/transition';
+	let visible = true;
+</script>
+
+<label>
+	<input type="checkbox" bind:checked={visible} />
+	visible
+</label>
+
+{#if visible}
+	<p in:fly={{ y: 100, duration: 600 }} out:fade>content</p>
+{/if}
+```
+
+## 自定义过渡函数
+
+### dropdown（css）
+
+```html
+<script>
+  let visible = true;
+  function dropdown(node, { duration = 250 }) {
+    return {
+      duration,
+      css: (t) => `
+        height: ${node.clientHeight * t}px;
+        opacity: ${t}
+      `,
+    };
+  }
+</script>
+
+<label>
+  <input type="checkbox" bind:checked="{visible}" />
+  visible
+</label>
+
+{#if visible}
+<ul transition:dropdown>
+  <li>Angular</li>
+  <li>React</li>
+  <li>Svelte</li>
+</ul>
+{/if}
+
+<style>
+  ul {
+    overflow: hidden;
+  }
+</style>
+```
+
+### typewriter（css）
+
+```html
+<script>
+  let visible = true;
+  function typewriter(node, { speed = 50 }) {
+    const text = node.textContent;
+    const len = text.length;
+    const duration = speed * len;
+    return {
+      duration,
+      css: (t) => `
+        width: ${node.clientWidth * t}px
+      `,
+    };
+  }
+</script>
+
+<label>
+  <input type="checkbox" bind:checked="{visible}" />
+  visible
+</label>
+<br />
+{#if visible}
+<p in:typewriter>this is typewriter</p>
+{/if}
+
+<style>
+  p {
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+  }
+</style>
+```
+
+### typewriter（js）
+
+```html
+<script>
+  let visible = true;
+  function typewriter(node, { speed = 50 }) {
+    const text = node.textContent;
+    const len = text.length;
+    const duration = speed * len;
+    return {
+      duration,
+      tick: (t) => {
+        node.textContent = text.slice(0, t * len);
+      },
+    };
+  }
+</script>
+
+<label>
+  <input type="checkbox" bind:checked="{visible}" />
+  visible
+</label>
+
+{#if visible}
+<p in:typewriter>this is typewriter</p>
+{/if}
+```
+
+## 点对点动画
+
+```html
+<script>
+	import { flip } from 'svelte/animate';
+	import { quintOut } from 'svelte/easing';
+	import { crossfade } from 'svelte/transition';
+
+	let source = ['option1', 'option2', 'option3', 'option4', 'option5'];
+	let target = ['option6', 'option7', 'option8', 'option9', 'option10'];
+
+	const [receive, send] = crossfade({
+		duration: 250,
+		fallback(node, params) {
+			const style = getComputedStyle(node);
+			const transform = style.transform === 'none' ? '' : style.transform;
+			return {
+				duration: 250,
+				css: (t) => `
+          transform: ${transform} scale(${t});
+        `
+			};
+		}
+	});
+</script>
+
+<p>transfer</p>
+
+<div class="content">
+	<div class="source">
+		{#each source as item (item)}
+			<label
+				class="item"
+				in:receive={{ key: item }}
+				out:send={{ key: item }}
+				animate:flip={{ duration: 250 }}
+			>
+				<input
+					type="checkbox"
+					on:change={() => {
+						source = source.filter((i) => i !== item);
+						target = [item, ...target];
+					}}
+				/>
+				{item}
+			</label>
+		{/each}
+	</div>
+	<div class="target">
+		{#each target as item (item)}
+			<label
+				class="item"
+				in:receive={{ key: item }}
+				out:send={{ key: item }}
+				animate:flip={{ duration: 250 }}
+			>
+				<input
+					type="checkbox"
+					on:change={() => {
+						target = target.filter((i) => i !== item);
+						source = [item, ...source];
+					}}
+				/>
+				{item}
+				<button on:click={() => (target = target.filter((i) => i !== item))}>delete</button>
+			</label>
+		{/each}
+	</div>
+</div>
+
+<style>
+	.content {
+		display: flex;
+		margin-top: 20px;
+	}
+	.source,
+	.target {
+		display: flex;
+		flex-direction: column;
+		width: 200px;
+	}
+	.item {
+		padding: 8px;
+		background-color: #ddd;
+		border-radius: 4px;
+		margin: 0 20px 10px 0;
+	}
+</style>
+
+```

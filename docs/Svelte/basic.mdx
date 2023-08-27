@@ -232,3 +232,98 @@ import { Img } from "@site/src/components/img";
 
 ### input group
 
+```html
+<script>
+  let selectNum = 1;
+  let selectList = [];
+  let allList = ["Angular", "React", "Svelte"];
+</script>
+
+<label>
+  <input type="radio" bind:group="{selectNum}" value="{1}" />
+  one
+</label>
+<label>
+  <input type="radio" bind:group="{selectNum}" value="{2}" />
+  two
+</label>
+<p>num is: {selectNum}</p>
+
+{#each allList as item (item)}
+<label>
+  <input type="checkbox" bind:group="{selectList}" value="{item}" />
+  {item}
+</label>
+{/each}
+
+<p>
+  selectList is: {#each selectList as item (item)}
+  <span> {item} </span>
+  {/each}
+</p>
+```
+
+### 组件 Dom 对象
+
+```html
+<script>
+  let label;
+  function addLabel() {
+    label.innerText += 1;
+  }
+</script>
+
+<label bind:this="{label}">label</label>
+<br />
+<button on:click="{addLabel}">addLabel</button>
+```
+
+### 自定义组件绑定
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  let value = "";
+</script>
+
+<p>value is: {value}</p>
+<Home bind:value />
+```
+
+```html title="home.svelte"
+<script>
+	export let value = '';
+</script>
+
+<div>
+	{#each Array(10) as _, row}
+		<span on:click={() => (value += row)}>{row}</span>
+	{/each}
+	<span on:click={() => (value = '')}>clear</span>
+	<span>submit</span>
+</div>
+
+<style>
+	div {
+		display: flex;
+		flex-wrap: wrap;
+		width: 250px;
+	}
+	span {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: #ccc;
+		border-radius: 4px;
+		cursor: pointer;
+		width: 60px;
+		height: 60px;
+		margin: 4px;
+    transition: all 0.25s;
+	}
+  span:active {
+    transform: scale(.8);
+  }
+</style>
+
+```
