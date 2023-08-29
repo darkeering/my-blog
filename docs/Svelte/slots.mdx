@@ -1,0 +1,179 @@
+---
+sidebar_position: 7
+title: 插槽
+description: 插槽
+---
+
+## slots
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+</script>
+
+<Home>
+  <p>slot content</p>
+</Home>
+```
+
+```html title="home.svelte"
+<div>
+  <slot />
+  <p>Home Content</p>
+</div>
+```
+
+## 默认插槽值
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+</script>
+
+<Home>
+  <p>slot content</p>
+</Home>
+
+<Home />
+```
+
+```html title="home.svelte"
+<div>
+  <slot>
+    <p>slot no content</p>
+  </slot>
+  <p>Home Content</p>
+</div>
+```
+
+## 命名插槽
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+</script>
+
+<Home>
+  <p slot="tel">123****8888</p>
+  <p slot="age">18</p>
+  <p slot="name">张三</p>
+</Home>
+```
+
+```html title="home.svelte"
+<div class="container">
+  <div class="name">
+    <slot name="name" />
+  </div>
+  <div class="age">
+    <span>age:</span>
+    <slot name="age" />
+  </div>
+  <div class="tel">
+    <span>tel:</span>
+    <slot name="tel" />
+  </div>
+</div>
+
+<style>
+  .container {
+    padding: 10px;
+    box-shadow: 0 0 4px #ccc;
+    display: inline-block;
+    width: 200px;
+    border-radius: 4px;
+  }
+  .name {
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+  }
+  .age,
+  .tel {
+    display: flex;
+    padding-top: 10px;
+  }
+</style>
+```
+
+## $$slots -- 插槽是否存在
+
+```html title="home.svelte"
+<script>
+  console.log($$slots);
+  /**
+  {
+    "name": true,
+    "age": true,
+    "tel": true
+  } */
+</script>
+```
+
+## slot output 数据
+
+```html title="app.svelte"
+<script>
+	import Home from './home.svelte';
+</script>
+
+<Home>
+	<p let:item class:active={item === 'tel'} slot="tel">123****8888</p>
+	<p let:item class:active={item === 'age'} slot="age">18</p>
+	<p let:item class:active={item === 'name'} slot="name">张三</p>
+</Home>
+
+<style>
+	p {
+		transition: all 0.25s;
+	}
+	.active {
+		transform: scale(1.1) translateY(-4px);
+	}
+</style>
+```
+
+```html title="home.svelte"
+<script>
+	let item = '';
+	function enter(name) {
+		item = name;
+	}
+	function leave() {
+		item = '';
+	}
+</script>
+
+<div class="container">
+	<div class="name" on:mouseenter={() => enter('name')} on:mouseleave={leave}>
+		<slot {item} name="name" />
+	</div>
+	<div class="age" on:mouseenter={() => enter('age')} on:mouseleave={leave}>
+		<span>age:</span>
+		<slot {item} name="age" />
+	</div>
+	<div class="tel" on:mouseenter={() => enter('tel')} on:mouseleave={leave}>
+		<span>tel:</span>
+		<slot {item} name="tel" />
+	</div>
+</div>
+
+<style>
+	.container {
+		padding: 10px;
+		box-shadow: 0 0 4px #ccc;
+		display: inline-block;
+		width: 200px;
+		border-radius: 4px;
+	}
+	.name {
+		border-bottom: 2px solid #ddd;
+		padding-bottom: 10px;
+		display: flex;
+	}
+	.age,
+	.tel {
+		display: flex;
+		padding-top: 10px;
+	}
+</style>
+```

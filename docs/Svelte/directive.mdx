@@ -1,0 +1,94 @@
+---
+sidebar_position: 5
+title: 指令（directive）
+description: 指令（directive）
+---
+
+## 介绍
+
+类似 Angular 的指令的功能，能获取到当前元素的 Dom 对象，且可以 output 一些方法
+
+## highlight
+
+```html title="app.svelte"
+<script>
+import {highlight} from './highlight.js'
+</script>
+
+<p use:highlight={{bgColor: '#e11d48', color: '#fff'}}>highlight</p>
+```
+
+```js title="highlight.js"
+export function highlight(node, params) {
+  node.style.backgroundColor = params?.bgColor;
+  node.style.color = params?.color;
+}
+```
+
+## portal（离开 dom 原来的文档位置）
+
+```html title="app.svelte"
+<script>
+	import { flip } from 'svelte/animate';
+	import { portal } from './portal.js';
+	import { fly } from 'svelte/transition';
+	let list = [];
+	let uuid = 0;
+</script>
+
+<div>
+	<ul use:portal>
+		{#each list as item (item.id)}
+			<li in:fly={{ x: 200 }} animate:flip={{ duration: 250 }}>
+				{item.title}
+			</li>
+		{/each}
+	</ul>
+	<button
+		on:click={() => {
+			const item = { id: uuid++, title: 'I am notification' };
+			list = [item, ...list];
+			const timer = setTimeout(() => {
+				list = list.filter((i) => i.id !== item.id);
+				clearTimeout(timer)
+			}, 3000);
+		}}
+		>click
+	</button>
+</div>
+
+<style>
+	ul {
+		list-style: none;
+	}
+	li {
+		background-color: #fff;
+		box-shadow: 0 0 8px #ccc;
+		padding: 10px;
+		border-radius: 4px;
+		margin-bottom: 10px;
+	}
+</style>
+
+```
+
+```js title="portal.js"
+export function portal(node) {
+	document.body?.appendChild(node);
+	node.setAttribute(
+		'style',
+		`
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    `
+	);
+
+	return {
+		destory() {
+			node.remove();
+		}
+	};
+}
+
+```

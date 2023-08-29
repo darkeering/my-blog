@@ -1,0 +1,96 @@
+---
+sidebar_position: 6
+title: context（上下文）
+description: context（上下文）
+---
+
+## 组件上下文
+
+**类似 Angular 的 service provide 在了 component 上面**
+
+在本示例中，teacher 的改变会引起自身及其 student 的变化，但是每个 student 自身的 year 变化不会引起其他 student 的变化
+
+```html title="app.svelte"
+<script>
+  import Teacher from "./teacher.svelte";
+</script>
+
+<Teacher />
+```
+
+```html title="teacher.svelte"
+<script>
+	import Student from './student.svelte';
+	import { getContext, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
+
+	setContext('teacher', writable('teacher1'));
+	let teacher = getContext('teacher')
+</script>
+
+<button on:click={() => $teacher += '1'}>change teacher</button>
+<p>I am teacher, my name is {$teacher}</p>
+<Student />
+<Student />
+```
+
+```html title="student.svelte"
+<script>
+	import { getContext, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
+	let teacher = getContext('teacher');
+  setContext('year', writable(18))
+  let year = getContext('year')
+</script>
+
+<p>I am student, I am {$year} years old, my teacher is {$teacher}</p>
+<button on:click={() => $year += 1}>add year</button>
+```
+
+## 模块上下文
+
+**类似 Angular 的 service provide 在了 module 上面**
+
+只会加载一次，不管组件使用实例化多少次
+
+在本实例中，student 的 year 变化会影响其他 student 的 year 变化
+
+```html title="app.svelte"
+<script>
+  import Teacher from "./teacher.svelte";
+</script>
+
+<Teacher />
+```
+
+```html title="teacher.svelte"
+<script>
+	import Student from './student.svelte';
+	import { getContext, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
+
+	setContext('teacher', writable('teacher1'));
+	let teacher = getContext('teacher')
+</script>
+
+<button on:click={() => $teacher += '1'}>change teacher</button>
+<p>I am teacher, my name is {$teacher}</p>
+<Student />
+<Student />
+```
+
+```html title="student.svelte"
+<script context="module">
+	setContext('year', writable(18));
+	let year = getContext('year');
+</script>
+
+<script>
+	import { getContext, setContext } from 'svelte';
+	import { writable } from 'svelte/store';
+	let teacher = getContext('teacher');
+</script>
+
+<p>I am student, I am {$year} years old, my teacher is {$teacher}</p>
+<button on:click={() => ($year += 1)}>add year</button>
+```
