@@ -1,0 +1,122 @@
+---
+sidebar_position: 8
+title: Svelte 自带组件
+description: 自带组件
+---
+
+## svelte:self 组件本身
+
+**svelte 组件不能自己 import 自身，但是有时需要自己本身组件嵌套引用（例如：树组件）**
+
+```html
+<script>
+	export let items = [
+		{
+			title: '开发',
+			children: [
+				{
+					title: '前端',
+					children: [
+						{
+							title: 'Angular'
+						},
+						{
+							title: 'React'
+						},
+						{
+							title: 'Svelte'
+						}
+					]
+				},
+				{
+					title: '后端',
+					children: [
+						{
+							title: 'Java'
+						},
+						{
+							title: 'Python'
+						},
+						{
+							title: 'Nodejs'
+						}
+					]
+				}
+			]
+		}
+	];
+</script>
+
+<ul>
+	{#each items as item (item)}
+		<li>
+			<p on:click={() => item.show = !item.show}>{item.title}</p>
+			{#if item.children && item.show}
+			<div class="list">
+				<svelte:self items={item.children} />
+			</div>
+			{/if}
+		</li>
+	{/each}
+</ul>
+
+<style>
+	p {
+		cursor: pointer;
+	}
+	ul {
+		list-style: none;
+	}
+	.list {
+		padding-left: 10px;
+	}
+</style>
+```
+
+## svelte:component 动态组件
+
+```html title="app.svelte"
+<script>
+  import Home from "./home.svelte";
+  import Blog from "./blog.svelte";
+  let options = [
+    {
+      key: "home",
+      component: Home,
+    },
+    {
+      key: "blog",
+      component: Blog,
+    },
+  ];
+  let selected = options[0];
+</script>
+
+<select bind:value="{selected}">
+  {#each options as option}
+  <option value="{option}">{option.key}</option>
+  {/each}
+</select>
+
+<svelte:component this="{selected.component}" />
+```
+
+```html title="home.svelte"
+<div>I am Home</div>
+```
+
+```html title="blog.svelte"
+<div>I am Blog</div>
+```
+
+## svelte:fragment
+
+**类似 Angular 的 ng-container，本身不会进行渲染，只会渲染他的子组件**
+
+## svelte:window svelte:body
+
+**可以绑定一些 window 和 body 的事件进行监听**
+
+## svelte:head
+
+**可以在组件中动态的给 html 的`<head>`中添加内容**
