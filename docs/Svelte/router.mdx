@@ -1,0 +1,105 @@
+---
+sidebar_position: 9
+title: 路由系统
+description: svelte router
+---
+
+## 介绍
+
+Svelte 官方文档中并没有讲怎么使用路由，但是通过 `npm cerate svelte@latest` 创建 Svelte 项目的时候，官方会使用 **`SvelteKit`**作为项目的路由系统
+
+## SvelteKit
+
+可以看这个 https://kit.svelte.dev/docs/introduction 官方文档进行了解，或者也可以听我讲两句有个大概的了解，再去看文档也不迟
+
+## 基本规则 +page.svelte
+
+SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的项目中，有一个最主要的文件夹--`src/routes`，你所有要展示的页面都是在这个文件夹下面的
+
+举个最简单的例子：http://localhost:8080/blogs/456，在这种 url 下面，我们并不关心前面的 host 和 port，而是关心后面的 path 部分--`/blogs/456`
+
+在整个路由系统中，只有特定的几个文件是会被识别，然后展示或执行的，他们都是以 `+` 开头，
+
+对于这样的 path，在项目中的具体显示就是 `src/routes/blogs/[id]` 的文件结构，在 routes，blogs，[id]，这几个文件夹下面都有个 +page.svelte 文件
+
+| path        | 显示页面文件                    |
+| ----------- | ------------------------------- |
+| /           | /routes/+page.svelte            |
+| /blogs      | /routes/blogs/+page.svelte      |
+| /blogs/[id] | /routes/blogs/[id]/+page.svelte |
+
+```html title="/routes/+page.svelte"
+<p>root works!</p>
+```
+
+```html title="/routes/blogs/+page.svelte"
+<p>blogs works!</p>
+```
+
+```html title="/routes/blogs/[id]/+page.svelte"
+<p>blogs [id] works!</p>
+```
+
+## +layout.svelte
+
+在上面的页面中，每个+page.svelte 对应每个路由的页面，但是在 path `/` 下面的一些内容需要带到 `/blogs` 下面中，例如整个页面的 header、导航栏、头像、登录登出等
+
+这就需要 +layout.svelte，在和 +page.svelte 同级的地方，都可以创建一个 +layout.svelte 文件
+
+路由系统如果检查到有 +layout.svelte ，就会优先渲染 +layout.svelte 的页面
+
+**需要注意的一点就是，如果你没有在 +layout.svelte 中加入 `<slot />` 的话，那么和这个路由同级的 +page.svelte 以及子路由的 +page.svelte，+layout.svelte 就都不会进行渲染**
+
+**如果加入 `<slot />` 的话，那么和这个路由同级的 +page.svelte 以及子路由的 +page.svelte，+layout.svelte 就会渲染在这个插槽中**
+
+```html title="/routes/+layout.svelte"
+<p>root layout works!</p>
+<a href="/">/(root)</a>
+<a href="/blogs">/blogs</a>
+<a href="/blogs/112233">/blogs/112233</a>
+<slot />
+```
+
+```html title="/routes/blogs/+layout.svelte"
+<p>blogs layout works!</p>
+<slot />
+```
+
+## +page.js
+
+当路由跳转到当前 +page.svelte 页面的时候，就会在页面加载前加载 +page.js，通常用来监听路由的变化，获取路由信息，然后给页面 return 初始化数据
+
++page.js return 的数据，+page.svelte 可以通过 `export let data;` 来获取
+
+```js title="/routes/+page.js"
+/** @type {import('./$types').PageLoad} */
+export async function load({ fetch, params }) {
+  return {title: 'root page js'};
+}
+```
+
+```html title="/routes/+page.svelte"
+<script>
+  /** @type {import('./$types').PageLoad} */
+  export let data;
+  console.log(data);
+</script>
+
+<p>root works!</p>
+```
+
+## +layout.js
+
+和 +page.js 类似，当路由跳转到当前 +layout.svelte 页面的时候，就会在页面加载前加载 +layout.js
+
++layout.js return 的数据，+layout.svelte 可以通过 `export let data;` 来获取
+
+
+## 注意
+:::tip
++page.js 和 +layout.js 相当于 Angular 的路由守卫，可以进行路由的拦截
+
+但是要注意的是，在其中进行接口调用的时候，需要在前面加上 **`export const ssr = false;`**
+
+否则会出现首屏加载出错
+:::
