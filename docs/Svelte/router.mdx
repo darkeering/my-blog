@@ -54,9 +54,11 @@ SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的�
 
 ```html title="/routes/+layout.svelte"
 <p>root layout works!</p>
-<a href="/">/(root)</a>
-<a href="/blogs">/blogs</a>
-<a href="/blogs/112233">/blogs/112233</a>
+<ul>
+  <li><a href="/">/(root)</a></li>
+  <li><a href="/blogs">/blogs</a></li>
+  <li><a href="/blogs/112233">/blogs/112233</a></li>
+</ul>
 <slot />
 ```
 
@@ -74,13 +76,14 @@ SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的�
 ```js title="/routes/+page.js"
 /** @type {import('./$types').PageLoad} */
 export async function load({ fetch, params }) {
-  return {title: 'root page js'};
+  return {
+    rootPageJs: "rootPageJs",
+  };
 }
 ```
 
 ```html title="/routes/+page.svelte"
 <script>
-  /** @type {import('./$types').PageLoad} */
   export let data;
   console.log(data);
 </script>
@@ -94,8 +97,19 @@ export async function load({ fetch, params }) {
 
 +layout.js return 的数据，+layout.svelte 可以通过 `export let data;` 来获取
 
++layout.js return 的数据，也可以在子路由的 +page.svelte 的 `export let data;`中获取
+
+```js title="/routes/+layout.js"
+/** @type {import('./$types').LayoutLoad} */
+export function load() {
+  return {
+    rootLayoutjs: 'rootLayoutjs'
+  };
+}
+```
 
 ## 注意
+
 :::tip
 +page.js 和 +layout.js 相当于 Angular 的路由守卫，可以进行路由的拦截
 
@@ -103,3 +117,9 @@ export async function load({ fetch, params }) {
 
 否则会出现首屏加载出错
 :::
+
+## +server.js
+
++server.js 可以让你设计一套 restful api 以便在开发的时候进行调用
+
+它返回的并不是 +page.svelte 这类的页面组件，而是 post，delete，put 等对应 http method 的方法
