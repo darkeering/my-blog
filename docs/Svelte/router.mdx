@@ -16,7 +16,7 @@ Svelte 官方文档中并没有讲怎么使用路由，但是通过 `npm cerate 
 
 SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的项目中，有一个最主要的文件夹--`src/routes`，你所有要展示的页面都是在这个文件夹下面的
 
-举个最简单的例子：http://localhost:8080/blogs/456，在这种 url 下面，我们并不关心前面的 host 和 port，而是关心后面的 path 部分--`/blogs/456`
+举个最简单的例子：http://localhost:8080/blogs/112233，在这种 url 下面，我们并不关心前面的 host 和 port，而是关心后面的 path 部分--`/blogs/112233`
 
 在整个路由系统中，只有特定的几个文件是会被识别，然后展示或执行的，他们都是以 `+` 开头，
 
@@ -29,15 +29,39 @@ SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的�
 | /blogs/[id] | /routes/blogs/[id]/+page.svelte |
 
 ```html title="/routes/+page.svelte"
-<p>root works!</p>
+<div>
+  <p>root page works!</p>
+</div>
+
+<style>
+  div {
+    background-color: #ccc;
+  }
+</style>
 ```
 
 ```html title="/routes/blogs/+page.svelte"
-<p>blogs works!</p>
+<div>
+  <p>blogs page works!</p>
+</div>
+
+<style>
+  div {
+    background-color: #aaa;
+  }
+</style>
 ```
 
 ```html title="/routes/blogs/[id]/+page.svelte"
-<p>blogs [id] works!</p>
+<div>
+  <p>blogs [id] works!</p>
+</div>
+
+<style>
+  div {
+    background-color: #999;
+  }
+</style>
 ```
 
 ## +layout.svelte
@@ -52,19 +76,48 @@ SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的�
 
 **如果加入 `<slot />` 的话，那么和这个路由同级的 +page.svelte 以及子路由的 +page.svelte，+layout.svelte 就会渲染在这个插槽中**
 
+```
+routes
+    │  +layout.svelte
+    │  +page.svelte
+    │
+    └─blogs
+       │  +layout.svelte
+       │  +page.svelte
+       │
+       └─[id]
+               +page.svelte
+```
+
 ```html title="/routes/+layout.svelte"
-<p>root layout works!</p>
-<ul>
-  <li><a href="/">/(root)</a></li>
-  <li><a href="/blogs">/blogs</a></li>
-  <li><a href="/blogs/112233">/blogs/112233</a></li>
-</ul>
-<slot />
+<div>
+  <p>root layout works!</p>
+  <ul>
+    <li><a href="/">/(root)</a></li>
+    <li><a href="/blogs">/blogs</a></li>
+    <li><a href="/blogs/112233">/blogs/112233</a></li>
+  </ul>
+  <slot />
+</div>
+
+<style>
+  div {
+    background-color: #ddd;
+  }
+</style>
 ```
 
 ```html title="/routes/blogs/+layout.svelte"
-<p>blogs layout works!</p>
-<slot />
+<div>
+  <p>blogs layout works!</p>
+  <slot />
+</div>
+
+<style>
+  div {
+    background-color: #bbb;
+  }
+</style>
 ```
 
 ## +page.js
@@ -73,11 +126,28 @@ SvelteKit 的路由是基于文件系统的，在通过上面的命令生成的�
 
 +page.js return 的数据，+page.svelte 可以通过 `export let data;` 来获取
 
+在这个例子中，url（/blogs/112233）中的 id 信息：112233，就可以通过 params 获取到，然后传递给 page.svelte 页面中使用
+
+```
+routes
+    │  +layout.svelte
+    │  +page.js
+    │  +page.svelte
+    │
+    └─blogs
+       │  +layout.svelte
+       │  +page.js
+       │  +page.svelte
+       │
+       └─[id]
+               +page.js
+               +page.svelte
+```
+
 ```js title="/routes/+page.js"
-/** @type {import('./$types').PageLoad} */
 export async function load({ fetch, params }) {
   return {
-    rootPageJs: "rootPageJs",
+    rootPageJs: "this is root page.js",
   };
 }
 ```
@@ -85,10 +155,66 @@ export async function load({ fetch, params }) {
 ```html title="/routes/+page.svelte"
 <script>
   export let data;
-  console.log(data);
 </script>
 
-<p>root works!</p>
+<div>
+  <p>root page works!</p>
+  <p>from root page.js data: {data.rootPageJs}</p>
+</div>
+
+<style>
+  div {
+    background-color: #ccc;
+  }
+</style>
+```
+
+```js title="/routes/blogs/+page.js"
+export async function load({ fetch, params }) {
+  return {
+    blogsPageJs: "this is blogs page.js",
+  };
+}
+```
+
+```html title="/routes/blogs/+page.svelte"
+<script>
+  export let data;
+</script>
+
+<div>
+  <p>blogs page works!</p>
+  <p>from blogs page.js data: {data.blogsPageJs}</p>
+</div>
+
+<style>
+  div {
+    background-color: #aaa;
+  }
+</style>
+```
+
+```js title="/routes/blogs/[id]/+page.js"
+export async function load({ fetch, params }) {
+  return params;
+}
+```
+
+```html title="/routes/blogs/[id]/+page.svelte"
+<script>
+  export let data;
+</script>
+
+<div>
+  <p>blogs {data.id} works!</p>
+  <p>from blogs [id] page.js data id: {data.id}</p>
+</div>
+
+<style>
+  div {
+    background-color: #999;
+  }
+</style>
 ```
 
 ## +layout.js
@@ -97,15 +223,139 @@ export async function load({ fetch, params }) {
 
 +layout.js return 的数据，+layout.svelte 可以通过 `export let data;` 来获取
 
+:::tip
 +layout.js return 的数据，也可以在子路由的 +page.svelte 的 `export let data;`中获取
+:::tip
+
+```
+routes
+    │  +layout.js
+    │  +layout.svelte
+    │  +page.js
+    │  +page.svelte
+    │
+    └─blogs
+       │  +layout.js
+       │  +layout.svelte
+       │  +page.js
+       │  +page.svelte
+       │
+       └─[id]
+               +page.js
+               +page.svelte
+```
 
 ```js title="/routes/+layout.js"
-/** @type {import('./$types').LayoutLoad} */
 export function load() {
   return {
-    rootLayoutjs: 'rootLayoutjs'
+    rootLayoutJs: "this is root layout.js",
   };
 }
+```
+
+```js title="/routes/+layout.svelte"
+<script>
+	export let data;
+</script>
+
+<div>
+	<p>root layout works!</p>
+	<ul>
+		<li><a href="/">/(root)</a></li>
+		<li><a href="/blogs">/blogs</a></li>
+		<li><a href="/blogs/112233">/blogs/112233</a></li>
+	</ul>
+  <p>from root layout.js data: {data.rootLayoutJs}</p>
+	<slot />
+</div>
+
+<style>
+	div {
+		background-color: #ddd;
+	}
+</style>
+```
+
+```js title="/routes/+page.svelte"
+<script>
+	export let data;
+</script>
+
+<div>
+  <p>root page works!</p>
+  <p>from root layout.js data: {data.rootLayoutJs}</p>
+  <p>from root page.js data: {data.rootPageJs}</p>
+</div>
+
+<style>
+	div {
+		background-color: #ccc;
+	}
+</style>
+```
+
+```js title="/routes/+layout.js"
+export function load() {
+  return {
+    blogsLayoutJs: 'this is blogs layout.js'
+  };
+}
+```
+
+```js title="/routes/blogs/+layout.svelte"
+<script>
+	export let data;
+</script>
+
+<div>
+	<p>blogs layout works!</p>
+  <p>from root layout.js data: {data.rootLayoutJs}</p>
+  <p>from blogs layout.js data: {data.blogsLayoutJs}</p>
+	<slot />
+</div>
+
+<style>
+	div {
+		background-color: #bbb;
+	}
+</style>
+```
+```js title="/routes/blogs/+page.svelte"
+<script>
+	export let data;
+</script>
+
+<div>
+  <p>blogs page works!</p>
+  <p>from root layout.js data: {data.rootLayoutJs}</p>
+  <p>from blogs layout.js data: {data.blogsLayoutJs}</p>
+  <p>from blogs page.js data: {data.blogsPageJs}</p>
+</div>
+
+
+<style>
+	div {
+		background-color: #aaa;
+	}
+</style>
+```
+```js title="/routes/blogs/[id]/+page.svelte"
+<script>
+	export let data;
+</script>
+
+<div>
+  <p>blogs {data.id} works!</p>
+  <p>from root layout.js data: {data.rootLayoutJs}</p>
+  <p>from blogs layout.js data: {data.blogsLayoutJs}</p>
+  <p>from blogs [id] page.js data id: {data.id}</p>
+</div>
+
+<style>
+	div {
+		background-color: #999;
+	}
+</style>
 ```
 
 ## 注意
